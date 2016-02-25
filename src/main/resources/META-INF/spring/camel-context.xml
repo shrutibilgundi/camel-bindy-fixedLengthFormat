@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configures the Camel Context-->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+  <camelContext xmlns="http://camel.apache.org/schema/spring">
+  
+  	 <!-- Disable JMX agent -->
+     <jmxAgent id="agent" disabled="true"/>
+     
+     <!-- This route polls for the input file from directory as mentioned in the from URI and then binds to the appropriate model
+          class based on the property 'RecordType which is set by the RouteProcessor. Unmarshalled objects are put into a list inside EDIProcessor -->
+    <route id="bindy" autoStartup="true">
+   	  <!-- Polls the directory C:/test_bindy with a delay of 10 milliseconds. After consuming the file it is neither deleted or moved -->
+      <from uri="file:C:/test_bindy?noop=true&amp;delay=10" /> 
+      <log message="---consuming the file----" loggingLevel="INFO"/>
+      <onException>
+      	<exception>java.lang.Exception</exception>
+      	<handled>
+            <constant>true</constant>
+        </handled>
+        <process ref="errorprocessor"></process>
+      </onException>
+      <split streaming="true">
+				<tokenize token="\n" group="1" />
+				<process ref="routeprocessor"></process>
+				<log message="after routeprocessor ::  ${body}" loggingLevel="INFO" />
+				<log message="header::  ${property.RecordType}" loggingLevel="INFO" />
+				<choice>
+					<when>
+					<simple>${property.RecordType} == 1</simple>
+					<log message="---unmarshalling header record----" loggingLevel="INFO"/>
+					<unmarshal ref="bindyDataformat" >
+						<bindy type="Fixed"  locale="en-us" classType="com.tcs.edi.model.header.HeaderRecord"/>
+					</unmarshal>
+					</when>
+					<when>
+					<simple>${property.RecordType} == 2</simple>
+					<log message="---unmarshalling stop record----" loggingLevel="INFO"/>
+					<unmarshal ref="bindyDataformat" >
+						<bindy type="Fixed"  locale="en-us" classType="com.tcs.edi.model.stop.StopRecord"/>
+					</unmarshal>
+					</when>	
+				</choice>		
+				<log message="output after fixed length unmarshalling ::: ${body}" loggingLevel="INFO" />
+			<to uri="bean:ediprocessor"/>
+			</split>
+		 <stop/>
+    </route>
+  </camelContext>
+  	<bean id="ediprocessor" class="com.tcs.edi.processor.EDIProcessor"/>
+	<bean id="routeprocessor" class="com.tcs.edi.processor.RouteProcessor"/>
+	<bean id="errorprocessor" class="com.tcs.edi.processor.ErrorProcessor"/>
+
+</beans>
