@@ -1,5 +1,5 @@
 
-The processing flow for this project goes as below:
+The processing flow for this project goes as below :
 
 1.	A route called ‘bindy’ is created in the Camel-context.xml with the consumer endpoint ‘File’ and producer endpoint ‘Bean’.
 
